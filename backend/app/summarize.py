@@ -4,8 +4,6 @@ import openai
 from typing import List, Dict, Any
 from .fetch_google_results import fetch_google_search_results
 import json
-import csv
-from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -103,30 +101,6 @@ Guidelines:
         print(f"Error generating insights: {e}")
         return []
 
-def save_insights(insights: List[Dict[str, Any]], search_term: str):
-    """
-    Save insights to both JSON and CSV files.
-    """
-    if not insights:
-        print("No valid insights to save")
-        return
-        
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # Save as JSON
-    json_filename = f"insights_{search_term.replace(' ', '_')}_{timestamp}.json"
-    with open(json_filename, 'w') as f:
-        json.dump(insights, f, indent=2)
-    print(f"Saved insights to {json_filename}")
-    
-    # Save as CSV
-    csv_filename = f"insights_{search_term.replace(' ', '_')}_{timestamp}.csv"
-    with open(csv_filename, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=['insight', 'source_title', 'source_link'])
-        writer.writeheader()
-        writer.writerows(insights)
-    print(f"Saved insights to {csv_filename}")
-
 def get_news_insights(search_term: str, num_results: int = 5) -> List[Dict[str, Any]]:
     """
     Main function to fetch news and generate structured insights.
@@ -148,10 +122,7 @@ def get_news_insights(search_term: str, num_results: int = 5) -> List[Dict[str, 
     # Generate insights using OpenAI
     insights = summarize_with_openai(results, search_term)
     
-    if insights:
-        # Save insights to files
-        save_insights(insights, search_term)
-    else:
+    if not insights:
         print("No valid insights were generated")
     
     return insights
