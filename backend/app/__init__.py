@@ -1,0 +1,3 @@
+"""
+News AI application package.
+""" 
