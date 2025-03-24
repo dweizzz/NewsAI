@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from .utils.summarize import get_news_insights
-from .routers import auth
+from .routers import auth, search_terms
 
 app = FastAPI(title="News AI API")
 
@@ -18,6 +18,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(search_terms.router)
 
 class SearchRequest(BaseModel):
     search_term: str
