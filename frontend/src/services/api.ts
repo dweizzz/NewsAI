@@ -1,4 +1,7 @@
-const API_BASE_URL = 'http://localhost:8000/api';
+// src/services/api.ts
+
+// Backend API base URL
+const API_BASE_URL = 'http://localhost:8000';
 
 export interface Insight {
   insight: string;
@@ -6,26 +9,22 @@ export interface Insight {
   source_link: string;
 }
 
-export interface SearchRequest {
-  search_term: string;
-  num_results?: number;
-}
-
-export const getInsights = async (searchTerm: string, numResults: number = 5): Promise<Insight[]> => {
+export const getInsights = async (searchTerm: string): Promise<Insight[]> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/insights`, {
-      method: 'POST',
+    // Call the insights endpoint with the search term
+    const token = localStorage.getItem('token');
+
+    const response = await fetch(`${API_BASE_URL}/api/insights?query=${encodeURIComponent(searchTerm)}`, {
+      method: 'GET',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        search_term: searchTerm,
-        num_results: numResults,
-      }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch insights');
+      const errorData = await response.json();
+      throw new Error(errorData.detail || `Error fetching insights: ${response.status}`);
     }
 
     return await response.json();
@@ -33,4 +32,4 @@ export const getInsights = async (searchTerm: string, numResults: number = 5): P
     console.error('Error fetching insights:', error);
     throw error;
   }
-}; 
+};

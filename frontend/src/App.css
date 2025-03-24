@@ -498,3 +498,47 @@ h1 {
     padding: 1.25rem;
   }
 }
+
+/* Header with logout button */
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: var(--primary-color);
+  background-image: linear-gradient(to right, var(--primary-color), var(--primary-dark));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.logout-button {
+  background-color: transparent;
+  color: var(--text-light);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Responsive adjustments for login and register */
+@media (max-width: 500px) {
+  .login-card {
+    padding: 1.5rem;
+    width: 90%;
+  }
+
+  .form-group input {
+    padding: 0.6rem;
+  }
+
+  .login-button {
+    padding: 0.7rem;
+  }
+}

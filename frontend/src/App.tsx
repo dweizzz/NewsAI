@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { getInsights, Insight } from './services/api'
+import { authEvents } from './services/authEvents'
+import Login from './components/Login'
+import Register from './components/Register'
 import './App.css'
 
 // Define a Tab type to manage our tabs system
@@ -15,23 +19,58 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('')
   const [savedSearches, setSavedSearches] = useState<string[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   // New state for managing tabs
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
 
+  // Check if user is already authenticated
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      setIsAuthenticated(true)
+    }
+
+    // Listen for authentication events
+    const unsubscribeLogin = authEvents.onLogin(() => {
+      console.log('Auth event: login');
+      setIsAuthenticated(true);
+    });
+
+    const unsubscribeLogout = authEvents.onLogout(() => {
+      console.log('Auth event: logout');
+      setIsAuthenticated(false);
+    });
+
+    // Cleanup event listeners
+    return () => {
+      unsubscribeLogin();
+      unsubscribeLogout();
+    };
+  }, [])
+
+  // For debugging - log auth state changes
+  useEffect(() => {
+    console.log('Authentication state changed:', isAuthenticated);
+  }, [isAuthenticated]);
+
   // Load saved searches from localStorage on initial render
   useEffect(() => {
-    const saved = localStorage.getItem('savedSearches')
-    if (saved) {
-      setSavedSearches(JSON.parse(saved))
+    if (isAuthenticated) {
+      const saved = localStorage.getItem('savedSearches')
+      if (saved) {
+        setSavedSearches(JSON.parse(saved))
+      }
     }
-  }, [])
+  }, [isAuthenticated])
 
   // Save searches to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('savedSearches', JSON.stringify(savedSearches))
-  }, [savedSearches])
+    if (isAuthenticated) {
+      localStorage.setItem('savedSearches', JSON.stringify(savedSearches))
+    }
+  }, [savedSearches, isAuthenticated])
 
   // Function to generate a unique ID for tabs
   const generateTabId = () => {
@@ -41,6 +80,19 @@ function App() {
   // Get the active tab
   const getActiveTab = () => {
     return tabs.find(tab => tab.id === activeTabId) || null
+  }
+
+  const handleLogout = () => {
+    // Clear auth state
+    setIsAuthenticated(false)
+    // Remove token
+    localStorage.removeItem('token')
+    // Emit logout event
+    authEvents.emitLogout()
+    // Clear user data
+    setSavedSearches([])
+    setTabs([])
+    setActiveTabId(null)
   }
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -174,7 +226,8 @@ function App() {
   // Get the currently active tab
   const activeTab = getActiveTab()
 
-  return (
+  // Main application UI component
+  const MainApp = () => (
     <div className="app-container">
       <div className={`sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
@@ -226,6 +279,9 @@ function App() {
       <div className="main-content">
         <div className="header-container">
           <h1>News AI Insights</h1>
+          <button className="logout-button" onClick={handleLogout}>
+            Log Out
+          </button>
         </div>
 
         <div className="scrollable-content">
@@ -288,7 +344,26 @@ function App() {
         </div>
       </div>
     </div>
-  )
+  );
+
+  return (
+    <Router>
+      <div className="app-root">
+        <Routes>
+          <Route path="/login" element={
+            isAuthenticated ? <Navigate to="/" replace /> : <Login />
+          } />
+          <Route path="/register" element={
+            isAuthenticated ? <Navigate to="/" replace /> : <Register />
+          } />
+          <Route path="/" element={
+            isAuthenticated ? <MainApp /> : <Navigate to="/login" replace />
+          } />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </Router>
+  );
 }
 
-export default App
+export default App;
