@@ -11,15 +11,18 @@ export interface Insight {
 
 export const getInsights = async (searchTerm: string): Promise<Insight[]> => {
   try {
-    // Call the insights endpoint with the search term
     const token = localStorage.getItem('token');
 
-    const response = await fetch(`${API_BASE_URL}/api/insights?query=${encodeURIComponent(searchTerm)}`, {
-      method: 'GET',
+    const response = await fetch(`${API_BASE_URL}/api/insights`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        search_term: searchTerm,
+        num_results: 5
+      })
     });
 
     if (!response.ok) {
