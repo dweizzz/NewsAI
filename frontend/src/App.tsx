@@ -4,6 +4,7 @@ import { getInsights, Insight } from './services/api'
 import { authEvents } from './services/authEvents'
 import Login from './components/Login'
 import Register from './components/Register'
+import SearchForm from './components/SearchForm' // Import the new component
 import './App.css'
 
 // Define a Tab type to manage our tabs system
@@ -16,31 +17,41 @@ interface Tab {
 }
 
 function App() {
-  const [searchTerm, setSearchTerm] = useState('')
   const [savedSearches, setSavedSearches] = useState<string[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  // We can remove the inputValue state since it's now managed by SearchForm
+  // const [inputValue, setInputValue] = useState('')
 
   // New state for managing tabs
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
-
-  // Check if user is already authenticated
+  
+  // Check if user is already authenticated - improved version to prevent unnecessary re-renders
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (token) {
-      setIsAuthenticated(true)
+      setIsAuthenticated(prevState => {
+        if (!prevState) return true;
+        return prevState;
+      });
     }
 
     // Listen for authentication events
     const unsubscribeLogin = authEvents.onLogin(() => {
       console.log('Auth event: login');
-      setIsAuthenticated(true);
+      setIsAuthenticated(prevState => {
+        if (!prevState) return true;
+        return prevState;
+      });
     });
 
     const unsubscribeLogout = authEvents.onLogout(() => {
       console.log('Auth event: logout');
-      setIsAuthenticated(false);
+      setIsAuthenticated(prevState => {
+        if (prevState) return false;
+        return prevState;
+      });
     });
 
     // Cleanup event listeners
@@ -93,57 +104,6 @@ function App() {
     setSavedSearches([])
     setTabs([])
     setActiveTabId(null)
-  }
-
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!searchTerm.trim()) return
-
-    // Create a new tab with this search term
-    const newTabId = generateTabId()
-    const newTab: Tab = {
-      id: newTabId,
-      searchTerm: searchTerm,
-      insights: [],
-      loading: true,
-      error: null
-    }
-
-    // Add new tab and set it as active
-    setTabs([...tabs, newTab])
-    setActiveTabId(newTabId)
-
-    // Add to saved searches if it's not already there
-    if (!savedSearches.includes(searchTerm)) {
-      setSavedSearches([...savedSearches, searchTerm])
-    }
-
-    // Clear the search input
-    setSearchTerm('')
-
-    // Fetch results
-    try {
-      const results = await getInsights(newTab.searchTerm)
-
-      // Update the tab with results
-      setTabs(prevTabs =>
-        prevTabs.map(tab =>
-          tab.id === newTabId
-            ? { ...tab, insights: results, loading: false }
-            : tab
-        )
-      )
-    } catch (err) {
-      // Update the tab with error
-      setTabs(prevTabs =>
-        prevTabs.map(tab =>
-          tab.id === newTabId
-            ? { ...tab, error: 'Failed to fetch insights. Please try again.', loading: false }
-            : tab
-        )
-      )
-      console.error(err)
-    }
   }
 
   const handleSavedSearchClick = async (term: string) => {
@@ -264,16 +224,53 @@ function App() {
           )}
         </div>
 
-        {/* New search form at the bottom of sidebar */}
-        <form onSubmit={handleSearch} className="sidebar-search-form">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search for insights..."
-            className="sidebar-search-input"
-          />
-        </form>
+        {/* Replace the form with our memoized SearchForm component */}
+        <SearchForm 
+          onSearch={(searchTerm) => {
+            // Create a new tab with this search term
+            const newTabId = generateTabId();
+            const newTab: Tab = {
+              id: newTabId,
+              searchTerm: searchTerm,
+              insights: [],
+              loading: true,
+              error: null
+            };
+          
+            // Add new tab and set it as active
+            setTabs([...tabs, newTab]);
+            setActiveTabId(newTabId);
+          
+            // Add to saved searches if it's not already there
+            if (!savedSearches.includes(searchTerm)) {
+              setSavedSearches([...savedSearches, searchTerm]);
+            }
+          
+            // Fetch results
+            getInsights(newTab.searchTerm)
+              .then(results => {
+                // Update the tab with results
+                setTabs(prevTabs =>
+                  prevTabs.map(tab =>
+                    tab.id === newTabId
+                      ? { ...tab, insights: results, loading: false }
+                      : tab
+                  )
+                );
+              })
+              .catch(err => {
+                // Update the tab with error
+                setTabs(prevTabs =>
+                  prevTabs.map(tab =>
+                    tab.id === newTabId
+                      ? { ...tab, error: 'Failed to fetch insights. Please try again.', loading: false }
+                      : tab
+                  )
+                );
+                console.error(err);
+              });
+          }}
+        />
       </div>
 
       <div className="main-content">

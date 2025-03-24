@@ -48,7 +48,13 @@ function Login() {
       console.log("Login response data:", data);
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Login failed');
+        // Handle specific error cases
+        if (data.detail === "Incorrect email or password") {
+          setError('Invalid email or password');
+        } else {
+          setError(data.detail || 'Login failed');
+        }
+        return;
       }
 
       // Store token
@@ -61,7 +67,7 @@ function Login() {
       navigate('/');
     } catch (err) {
       console.error("Login error:", err);
-      setError(err instanceof Error ? err.message : 'An error occurred during login');
+      setError('An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
     }

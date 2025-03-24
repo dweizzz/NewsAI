@@ -59,7 +59,15 @@ function Register() {
       console.log("Registration response data:", data);
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Registration failed');
+        // Handle specific error messages
+        if (data.detail === "Email already registered") {
+          setError('This email is already registered');
+        } else if (data.detail === "Username already taken") {
+          setError('This username is already taken');
+        } else {
+          setError(data.detail || 'Registration failed');
+        }
+        return;
       }
 
       // Registration successful, store token and redirect
@@ -72,7 +80,7 @@ function Register() {
       navigate('/');
     } catch (err) {
       console.error("Registration error:", err);
-      setError(err instanceof Error ? err.message : 'An error occurred during registration');
+      setError('An error occurred during registration. Please try again.');
     } finally {
       setIsLoading(false);
     }
