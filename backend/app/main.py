@@ -2,7 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from .summarize import get_news_insights
+from .utils.summarize import get_news_insights
+from .routers import auth
 
 app = FastAPI(title="News AI API")
 
@@ -14,6 +15,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(auth.router)
 
 class SearchRequest(BaseModel):
     search_term: str

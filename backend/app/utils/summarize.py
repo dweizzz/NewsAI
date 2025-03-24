@@ -125,20 +125,4 @@ def get_news_insights(search_term: str, num_results: int = 5) -> List[Dict[str, 
     if not insights:
         print("No valid insights were generated")
     
-    return insights
-
-# Example usage
-if __name__ == "__main__":
-    search_term = "artificial intelligence"
-    print(f"\nGenerating insights for: {search_term}\n")
-    insights = get_news_insights(search_term, 5)
-    
-    # Print insights to console
-    if insights:
-        print("\nGenerated Insights:")
-        for i, insight in enumerate(insights, 1):
-            print(f"\n{i}. {insight['insight']}")
-            print(f"   Source: {insight['source_title']}")
-            print(f"   Link: {insight['source_link']}")
-    else:
-        print("No insights were generated") 
+    return insights 

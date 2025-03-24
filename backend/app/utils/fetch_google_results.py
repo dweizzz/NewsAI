@@ -51,15 +51,4 @@ def fetch_google_search_results(search_term: str, num_results: int = 10) -> List
         
     except requests.exceptions.RequestException as e:
         print(f"Error fetching search results: {e}")
-        return []
-
-# Example usage
-if __name__ == "__main__":
-    results = fetch_google_search_results("Playboi carti", 5)
-    for result in results:
-        print(f"Title: {result['title']}")
-        print(f"Link: {result['link']}")
-        print(f"Snippet: {result['snippet']}")
-        if result.get('date'):
-            print(f"Date: {result['date']}")
-        print()
+        return [] 
