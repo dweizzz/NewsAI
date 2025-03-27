@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { getInsights, Insight } from './services/api'
+import { getInsights, Insight, fetchSavedSearches, saveSearchTerm, deleteSearchTerm } from './services/api'
 import { authEvents } from './services/authEvents'
 import Login from './components/Login'
 import Register from './components/Register'
-import SearchForm from './components/SearchForm' // Import the new component
+import SearchForm from './components/SearchForm'
 import './App.css'
+
+// Define the saved search term type from API
+interface SavedSearchTerm {
+  _id: string;
+  term: string;
+  user_id: string;
+  created_at: string;
+}
 
 // Define a Tab type to manage our tabs system
 interface Tab {
@@ -17,17 +25,20 @@ interface Tab {
 }
 
 function App() {
-  const [savedSearches, setSavedSearches] = useState<string[]>([])
+  // Change the type to SavedSearchTerm[] to match the API response
+  const [savedSearches, setSavedSearches] = useState<SavedSearchTerm[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  // We can remove the inputValue state since it's now managed by SearchForm
-  // const [inputValue, setInputValue] = useState('')
 
   // New state for managing tabs
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
-  
-  // Check if user is already authenticated - improved version to prevent unnecessary re-renders
+  const [isLoadingSavedSearches, setIsLoadingSavedSearches] = useState(false)
+
+  // Add a flag to track when a search save is in progress
+  const [isSavingSearch, setIsSavingSearch] = useState(false)
+
+  // Check if user is already authenticated
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (token) {
@@ -66,22 +77,27 @@ function App() {
     console.log('Authentication state changed:', isAuthenticated);
   }, [isAuthenticated]);
 
-  // Load saved searches from localStorage on initial render
+  // Load saved searches from API when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const saved = localStorage.getItem('savedSearches')
-      if (saved) {
-        setSavedSearches(JSON.parse(saved))
-      }
+      loadSavedSearches();
     }
   }, [isAuthenticated])
 
-  // Save searches to localStorage whenever they change
-  useEffect(() => {
-    if (isAuthenticated) {
-      localStorage.setItem('savedSearches', JSON.stringify(savedSearches))
+  // Function to load saved searches from the API
+  const loadSavedSearches = async () => {
+    if (!isAuthenticated) return;
+
+    setIsLoadingSavedSearches(true);
+    try {
+      const searches = await fetchSavedSearches();
+      setSavedSearches(searches);
+    } catch (error) {
+      console.error('Failed to load saved searches:', error);
+    } finally {
+      setIsLoadingSavedSearches(false);
     }
-  }, [savedSearches, isAuthenticated])
+  };
 
   // Function to generate a unique ID for tabs
   const generateTabId = () => {
@@ -106,9 +122,9 @@ function App() {
     setActiveTabId(null)
   }
 
-  const handleSavedSearchClick = async (term: string) => {
+  const handleSavedSearchClick = async (search: SavedSearchTerm) => {
     // Check if we already have a tab with this search term
-    const existingTab = tabs.find(tab => tab.searchTerm === term)
+    const existingTab = tabs.find(tab => tab.searchTerm === search.term)
 
     if (existingTab) {
       // If tab exists, just activate it
@@ -120,7 +136,7 @@ function App() {
     const newTabId = generateTabId()
     const newTab: Tab = {
       id: newTabId,
-      searchTerm: term,
+      searchTerm: search.term,
       insights: [],
       loading: true,
       error: null
@@ -132,7 +148,7 @@ function App() {
 
     // Fetch results
     try {
-      const results = await getInsights(term)
+      const results = await getInsights(search.term)
 
       // Update the tab with results
       setTabs(prevTabs =>
@@ -155,9 +171,16 @@ function App() {
     }
   }
 
-  const handleRemoveSavedSearch = (term: string, e: React.MouseEvent) => {
+  const handleRemoveSavedSearch = async (search: SavedSearchTerm, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent triggering the parent click handler
-    setSavedSearches(savedSearches.filter(search => search !== term))
+
+    try {
+      await deleteSearchTerm(search._id);
+      // Remove from local state after successful API call
+      setSavedSearches(savedSearches.filter(s => s._id !== search._id));
+    } catch (error) {
+      console.error('Failed to delete search term:', error);
+    }
   }
 
   const toggleSidebar = () => {
@@ -202,20 +225,22 @@ function App() {
         </div>
 
         <div className="saved-searches-list">
-          {savedSearches.length === 0 ? (
+          {isLoadingSavedSearches ? (
+            <p className="loading-searches">Loading saved searches...</p>
+          ) : savedSearches.length === 0 ? (
             <p className="no-saved-searches">No saved searches yet</p>
           ) : (
-            savedSearches.map((term, index) => (
+            savedSearches.map((search) => (
               <div
-                key={index}
+                key={search._id}
                 className="saved-search-item"
-                onClick={() => handleSavedSearchClick(term)}
+                onClick={() => handleSavedSearchClick(search)}
               >
-                <span>{term}</span>
+                <span>{search.term}</span>
                 <button
                   className="remove-search-button"
-                  onClick={(e) => handleRemoveSavedSearch(term, e)}
-                  aria-label={`Remove ${term} from saved searches`}
+                  onClick={(e) => handleRemoveSavedSearch(search, e)}
+                  aria-label={`Remove ${search.term} from saved searches`}
                 >
                   ×
                 </button>
@@ -224,9 +249,8 @@ function App() {
           )}
         </div>
 
-        {/* Replace the form with our memoized SearchForm component */}
-        <SearchForm 
-          onSearch={(searchTerm) => {
+        <SearchForm
+          onSearch={async (searchTerm) => {
             // Create a new tab with this search term
             const newTabId = generateTabId();
             const newTab: Tab = {
@@ -236,16 +260,33 @@ function App() {
               loading: true,
               error: null
             };
-          
+
             // Add new tab and set it as active
             setTabs([...tabs, newTab]);
             setActiveTabId(newTabId);
-          
-            // Add to saved searches if it's not already there
-            if (!savedSearches.includes(searchTerm)) {
-              setSavedSearches([...savedSearches, searchTerm]);
+
+            // Save this search term to the backend if user is authenticated
+            // Check if we're not already in the process of saving a search term
+            if (!isSavingSearch && isAuthenticated) {
+              try {
+                // Set the flag to prevent duplicate saves
+                setIsSavingSearch(true);
+
+                // Check if this term is already saved - use functional update to ensure latest state
+                const existingSearch = savedSearches.find(s => s.term === searchTerm);
+
+                if (!existingSearch) {
+                  const newSearch = await saveSearchTerm(searchTerm);
+                  setSavedSearches(prevSearches => [...prevSearches, newSearch]);
+                }
+              } catch (error) {
+                console.error('Failed to save search term:', error);
+              } finally {
+                // Reset the flag regardless of success or failure
+                setIsSavingSearch(false);
+              }
             }
-          
+
             // Fetch results
             getInsights(newTab.searchTerm)
               .then(results => {

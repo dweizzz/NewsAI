@@ -42,10 +42,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
+
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt 
+    return encoded_jwt
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Database = Depends(get_db)) -> Dict[str, Any]:
     """
@@ -57,7 +57,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Database = D
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         # Decode JWT token
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -66,11 +66,36 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Database = D
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-        
+
     from ..services.user_service import get_user_by_email  # Import here to avoid circular import
     # Get user from database
     user = get_user_by_email(db, email)
     if user is None:
         raise credentials_exception
-        
+
     return user
+
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
+
+async def get_current_user_optional(token: str = Depends(oauth2_scheme_optional), db: Database = Depends(get_db)) -> Optional[Dict[str, Any]]:
+    """
+    Get the current user from the JWT token, but don't require authentication.
+    Returns None if no token or invalid token.
+    """
+    if not token:
+        return None
+
+    try:
+        # Decode JWT token
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            return None
+
+        from ..services.user_service import get_user_by_email  # Import here to avoid circular import
+        # Get user from database
+        user = get_user_by_email(db, email)
+        return user
+    except Exception:
+        # Return None for any error (JWT, database, etc.)
+        return None

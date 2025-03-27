@@ -5,6 +5,7 @@ from ..mongodb.config import get_db
 from ..schemas.search_term import SearchTerm, SearchTermCreate
 from ..services.search_term_service import get_user_search_terms, create_search_term, delete_search_term
 from ..utils.security import get_current_user
+from bson import ObjectId
 
 router = APIRouter(prefix="/search-terms", tags=["search terms"])
 
@@ -30,7 +31,10 @@ async def create_user_search_term(
     Create a new search term for the currently logged in user.
     Requires authentication.
     """
-    return create_search_term(db, str(current_user["_id"]), search_term.term)
+    result = create_search_term(db, search_term.term, str(current_user["_id"]))
+    if isinstance(result.get("_id"), ObjectId):
+        result["_id"] = str(result["_id"])
+    return result
 
 @router.delete("/{search_term_id}", response_model=dict)
 async def delete_user_search_term(

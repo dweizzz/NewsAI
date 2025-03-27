@@ -1,11 +1,15 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from pymongo.database import Database
+
 from .utils.summarize import get_news_insights
 from .routers import auth, search_terms
 from .mongodb.models import UserModel, SearchTermModel
-from .mongodb.config import db
+from .mongodb.config import db, get_db
+from .utils.security import get_current_user_optional
+from .services import search_term_service
 
 app = FastAPI(title="News AI API")
 
@@ -32,9 +36,19 @@ class Insight(BaseModel):
     source_link: str
 
 @app.post("/api/insights", response_model=List[Insight])
-async def get_insights(request: SearchRequest):
+async def get_insights(
+    request: SearchRequest,
+    db: Database = Depends(get_db),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)
+):
     try:
         insights = get_news_insights(request.search_term, request.num_results)
+
+        # If user is authenticated, save their search term
+        if current_user:
+            user_id = str(current_user["_id"])
+            search_term_service.create_search_term(db, request.search_term, user_id)
+
         if not insights:
             raise HTTPException(status_code=404, detail="No insights found")
         return insights

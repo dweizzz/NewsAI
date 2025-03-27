@@ -1,21 +1,31 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field, GetJsonSchemaHandler
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import core_schema
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any, Dict, Annotated
 from bson import ObjectId
 
-# Custom Pydantic field for ObjectId
+# More robust ObjectId handling for Pydantic v2
 class PyObjectId(str):
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
+    def validate(cls, v, info=None):
         if not ObjectId.is_valid(v):
             raise ValueError("Invalid ObjectID")
         return str(v)
 
-# Search Term Schemas
+    @classmethod
+    def __get_pydantic_core_schema__(cls, _source_type, _handler):
+        return core_schema.with_info_after_validator_function(
+            cls.validate,
+            core_schema.str_schema(),
+            serialization=core_schema.str_schema(),
+        )
+
+# For Pydantic V2 compatibility
 class SearchTermBase(BaseModel):
     term: str
 
@@ -23,16 +33,15 @@ class SearchTermCreate(SearchTermBase):
     pass
 
 class SearchTerm(SearchTermBase):
-    id: PyObjectId = Field(alias="_id")
+    id: PyObjectId = Field(default=None, alias="_id")
     user_id: str
     created_at: datetime
 
     class Config:
+        populate_by_name = True
         arbitrary_types_allowed = True
-        json_encoders = {
-            ObjectId: str
-        }
-        schema_extra = {
+        json_encoders = {ObjectId: str}
+        json_schema_extra = {
             "example": {
                 "_id": "60d5ec9af3c56a289b12345",
                 "term": "artificial intelligence",
