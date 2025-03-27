@@ -44,11 +44,6 @@ async def get_insights(
     try:
         insights = get_news_insights(request.search_term, request.num_results)
 
-        # If user is authenticated, save their search term
-        if current_user:
-            user_id = str(current_user["_id"])
-            search_term_service.create_search_term(db, request.search_term, user_id)
-
         if not insights:
             raise HTTPException(status_code=404, detail="No insights found")
         return insights
@@ -63,7 +58,10 @@ async def health_check():
 @app.on_event("startup")
 async def startup_db_client():
     UserModel.create_indexes(db)
-    SearchTermModel.create_indexes(db)
+    db[SearchTermModel.collection_name].create_index(
+        [("user_id", 1), ("term", 1)],
+        unique=True
+    )
     print("MongoDB connection established and indexes created")
 
 # Close MongoDB connection on shutdown

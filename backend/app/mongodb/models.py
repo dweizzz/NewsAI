@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Dict, Any
-from bson import ObjectId
-from pymongo import IndexModel, ASCENDING
+from pymongo.database import Database
 
 # User model
 class UserModel:
@@ -30,8 +29,12 @@ class SearchTermModel:
     collection_name = "search_terms"
 
     @staticmethod
-    def create_indexes(db):
-        db[SearchTermModel.collection_name].create_index("user_id")
+    def create_indexes(cls, db: Database):
+        """Create necessary indexes for the SearchTerm collection."""
+        db[cls.collection_name].create_index(
+            [("user_id", 1), ("term", 1)],
+            unique=True
+        )
 
     @staticmethod
     def to_document(term: str, user_id: str) -> Dict[str, Any]:
