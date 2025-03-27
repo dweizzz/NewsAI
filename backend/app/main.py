@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 from .utils.summarize import get_news_insights
 from .routers import auth, search_terms
+from .mongodb.models import UserModel, SearchTermModel
+from .mongodb.config import db
 
 app = FastAPI(title="News AI API")
 
@@ -41,4 +43,18 @@ async def get_insights(request: SearchRequest):
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy"} 
+    return {"status": "healthy"}
+
+# Create MongoDB indexes on startup
+@app.on_event("startup")
+async def startup_db_client():
+    UserModel.create_indexes(db)
+    SearchTermModel.create_indexes(db)
+    print("MongoDB connection established and indexes created")
+
+# Close MongoDB connection on shutdown
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    from .mongodb.config import client
+    client.close()
+    print("MongoDB connection closed")
