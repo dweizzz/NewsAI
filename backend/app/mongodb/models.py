@@ -29,9 +29,9 @@ class SearchTermModel:
     collection_name = "search_terms"
 
     @staticmethod
-    def create_indexes(cls, db: Database):
+    def create_indexes(db: Database):
         """Create necessary indexes for the SearchTerm collection."""
-        db[cls.collection_name].create_index(
+        db[SearchTermModel.collection_name].create_index(
             [("user_id", 1), ("term", 1)],
             unique=True
         )
@@ -42,4 +42,29 @@ class SearchTermModel:
             "term": term,
             "user_id": user_id,
             "created_at": datetime.utcnow()
+        }
+
+# Add to models.py
+class CacheModel:
+    collection_name = "cache"
+
+    @staticmethod
+    def create_indexes(db):
+        """Create necessary indexes for the Cache collection."""
+        db[CacheModel.collection_name].create_index(
+            [("search_term", 1), ("num_results", 1)],
+            unique=True
+        )
+        db[CacheModel.collection_name].create_index(
+            "created_at",
+            expireAfterSeconds=86400
+        )
+
+    @staticmethod
+    def to_document(search_term: str, insights: list, num_results: int) -> Dict[str, Any]:
+        return {
+            "search_term": search_term,
+            "insights": insights,
+            "num_results": num_results,
+            "created_at": datetime
         }

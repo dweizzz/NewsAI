@@ -6,10 +6,10 @@ from pymongo.database import Database
 
 from .utils.summarize import get_news_insights
 from .routers import auth, search_terms
-from .mongodb.models import UserModel, SearchTermModel
+from .mongodb.models import UserModel, SearchTermModel, CacheModel
 from .mongodb.config import db, get_db
 from .utils.security import get_current_user_optional
-from .services import search_term_service
+from .services import search_term_service, cache_service
 
 app = FastAPI(title="News AI API")
 
@@ -42,10 +42,32 @@ async def get_insights(
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)
 ):
     try:
+        cached_insights = cache_service.get_cached_insights(
+            db, request.search_term, request.num_results
+        )
+
+        if cached_insights:
+            print(f"Cache hit for search term: {request.search_term}")
+            return cached_insights
+
+        print(f"Cache miss for search term: {request.search_term}")
         insights = get_news_insights(request.search_term, request.num_results)
 
         if not insights:
             raise HTTPException(status_code=404, detail="No insights found")
+
+        cache_service.save_insights_to_cache(
+            db, request.search_term, insights, request.num_results
+        )
+
+        if current_user:
+            try:
+                search_term_service.create_search_term(
+                    db, request.search_term, str(current_user["_id"])
+                )
+            except Exception as e:
+                print(f"Failed to save search term: {e}")
+
         return insights
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -57,11 +79,9 @@ async def health_check():
 # Create MongoDB indexes on startup
 @app.on_event("startup")
 async def startup_db_client():
+    SearchTermModel.create_indexes(db)
+    CacheModel.create_indexes(db)
     UserModel.create_indexes(db)
-    db[SearchTermModel.collection_name].create_index(
-        [("user_id", 1), ("term", 1)],
-        unique=True
-    )
     print("MongoDB connection established and indexes created")
 
 # Close MongoDB connection on shutdown
