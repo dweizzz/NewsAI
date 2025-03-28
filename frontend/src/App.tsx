@@ -5,6 +5,7 @@ import { authEvents } from './services/authEvents'
 import Login from './components/Login'
 import Register from './components/Register'
 import SearchForm from './components/SearchForm'
+import LandingPage from './components/LandingPage/LandingPage'
 import './App.css'
 
 // Define the saved search term type from API
@@ -388,13 +389,17 @@ function App() {
     <Router>
       <div className="app-root">
         <Routes>
+          {/* Add the landing page as the home route when not authenticated */}
+          <Route path="/" element={
+            isAuthenticated ? <MainApp /> : <LandingPage />
+          } />
           <Route path="/login" element={
             isAuthenticated ? <Navigate to="/" replace /> : <Login />
           } />
           <Route path="/register" element={
             isAuthenticated ? <Navigate to="/" replace /> : <Register />
           } />
-          <Route path="/" element={
+          <Route path="/app" element={
             isAuthenticated ? <MainApp /> : <Navigate to="/login" replace />
           } />
           <Route path="*" element={<Navigate to="/" replace />} />

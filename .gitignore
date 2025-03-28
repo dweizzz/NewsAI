@@ -33,3 +33,7 @@ ENV/
 .vscode/
 *.swp
 *.swo 
+
+# Misc
+.frontend/collect-files.js
+.backend/collect-files.js
